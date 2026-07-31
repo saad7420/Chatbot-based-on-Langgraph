@@ -6,9 +6,16 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph, add_messages
 import os
 from dotenv import load_dotenv
+import streamlit as st
 
 load_dotenv()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+# Check Streamlit Cloud Secrets first, fall back to environment variable / .env
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY is not set. Please configure it in Streamlit Cloud Secrets or .env file.")
+
 model = ChatGroq(
     model="llama-3.3-70b-versatile",
     api_key=GROQ_API_KEY,
