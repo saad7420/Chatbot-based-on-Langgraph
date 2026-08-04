@@ -10,11 +10,17 @@ import streamlit as st
 
 load_dotenv()
 
-# Check Streamlit Cloud Secrets first, fall back to environment variable / .env
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+# Safely check Streamlit secrets without crashing locally
+groq_key = None
+try:
+    groq_key = st.secrets.get("GROQ_API_KEY")
+except Exception:
+    pass
+
+GROQ_API_KEY = groq_key or os.getenv("GROQ_API_KEY")
 
 if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY is not set. Please configure it in Streamlit Cloud Secrets or .env file.")
+    raise ValueError("GROQ_API_KEY is not set. Please add it to .env locally or Streamlit Cloud Secrets.")
 
 model = ChatGroq(
     model="llama-3.3-70b-versatile",
@@ -51,3 +57,12 @@ def retrive_all_thread():
         if thread_id:
             all_threads.add(thread_id)
     return list(all_threads)
+
+# Save graph visualization to PNG
+try:
+    png_data = workflow.get_graph().draw_mermaid_png()
+    with open("graph.png", "wb") as f:
+        f.write(png_data)
+    print("Graph image saved successfully as graph.png")
+except Exception as e:
+    print(f"Failed to generate graph PNG: {e}")
