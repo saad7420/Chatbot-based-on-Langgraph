@@ -13,7 +13,7 @@ st.markdown(
     .block-container { 
         padding-top: 1.8rem; 
         padding-bottom: 2rem; 
-        max-width: 900px; /* Centers main chat area for comfortable reading */
+        max-width: 900px;
     }
 
     /* 2. Sidebar Text & Header Styling */
@@ -21,14 +21,12 @@ st.markdown(
         border-right: 1px solid rgba(128, 128, 128, 0.2);
     }
     
-    /* Sidebar Title */
     [data-testid="stSidebar"] h1 {
         font-size: 2rem !important;
         font-weight: 600 !important;
         padding-bottom: 0.5rem;
     }
 
-    /* Sidebar Caption / Section Headers */
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
         font-size: 1rem !important;
         font-weight: 500;
@@ -37,7 +35,7 @@ st.markdown(
         opacity: 0.7;
     }
 
-    /* 3. Sidebar Conversation Buttons (Gemini / ChatGPT Style) */
+    /* 3. Sidebar Conversation Buttons */
     [data-testid="stSidebar"] .stButton > button {
         width: 100%;
         border-radius: 8px;
@@ -45,7 +43,7 @@ st.markdown(
         border: none;
         padding: 0.45rem 0.75rem;
         background: transparent;
-        font-size: 1rem !important; /* Ideal sidebar text size (~14px) */
+        font-size: 1rem !important;
         font-weight: 400;
         line-height: 1.4;
         white-space: nowrap;
@@ -54,7 +52,6 @@ st.markdown(
         transition: background-color 0.15s ease-in-out;
     }
 
-    /* Subtle hover effect for thread items */
     [data-testid="stSidebar"] .stButton > button:hover {
         background-color: rgba(128, 128, 128, 0.15);
     }
@@ -64,11 +61,10 @@ st.markdown(
         border-radius: 12px;
         padding: 0.9rem 1.1rem;
         margin-bottom: 0.6rem;
-        font-size: 1rem; /* Clean body text size (~15px) */
+        font-size: 1rem;
         line-height: 1.6;
     }
 
-    /* Main Section Header */
     h2 {
         font-size: 2rem !important;
         font-weight: 600 !important;
@@ -135,12 +131,9 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Recent chats")
 
-    # Render thread history in reverse order (newest first)
     for thread_id in st.session_state["chat_threads"][::-1]:
         title = get_thread_preview(thread_id)
         is_active = thread_id == st.session_state["thread_id"]
-        
-        # Display active threads with a minimal text prefix instead of icons
         display_title = f"• {title}" if is_active else title
         
         if st.button(display_title, key=f"btn_{thread_id}", use_container_width=True):
@@ -170,21 +163,20 @@ user_input = st.chat_input("Type a message...")
 if user_input:
     current_thread = st.session_state["thread_id"]
     
-    # Store title from first message
     if current_thread not in st.session_state["thread_titles"]:
         summary_title = user_input[:28] + "..." if len(user_input) > 28 else user_input
         st.session_state["thread_titles"][current_thread] = summary_title
 
-    # Render User Input
     st.session_state["messages_history"].append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
     config = {"configurable": {"thread_id": current_thread}}
 
-    # Stream Assistant Response
     with st.chat_message("assistant"):
-        def stream_ai_only():
+        def stream_with_status():
+            status_container = None
+            
             for event in workflow.stream(
                 {"messages": [HumanMessage(content=user_input)]},
                 config=config,
@@ -192,10 +184,30 @@ if user_input:
             ):
                 if isinstance(event, tuple):
                     message_chunk, metadata = event
-                    if isinstance(message_chunk, AIMessageChunk) and message_chunk.content:
+                    
+                    if isinstance(message_chunk, AIMessageChunk) and message_chunk.tool_calls:
+                        for tool_call in message_chunk.tool_calls:
+                            tool_name = tool_call.get("name", "tool")
+                            status_container = st.status(
+                                f"Using **{tool_name}** tool...", 
+                                state="running", 
+                                expanded=True
+                            )
+                            status_container.write(f"Executing `{tool_name}` with arguments: `{tool_call.get('args')}`")
+
+                    elif message_chunk.__class__.__name__ == "ToolMessage":
+                        if status_container:
+                            status_container.write("Tool execution completed.")
+                            status_container.update(
+                                label="Tool execution completed!", 
+                                state="complete", 
+                                expanded=False
+                            )
+
+                    elif isinstance(message_chunk, AIMessageChunk) and message_chunk.content:
                         yield message_chunk.content
 
-        assistant_response = st.write_stream(stream_ai_only())
+        assistant_response = st.write_stream(stream_with_status())
 
     st.session_state["messages_history"].append({
         "role": "assistant",
