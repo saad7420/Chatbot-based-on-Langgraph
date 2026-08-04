@@ -1,6 +1,10 @@
 streamlit
-langchain-groq
+langchain
 langchain-core
+langchain-community
+langchain-groq
 langgraph
-langgraph-checkpoint-sqlite
+pydantic
+requests
 python-dotenv
+duckduckgo-search
