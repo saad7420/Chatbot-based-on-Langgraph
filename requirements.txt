@@ -9,3 +9,7 @@ pydantic
 requests
 python-dotenv
 duckduckgo-search
+streamlit==1.48.1
+starlette==0.47.2
+fastapi==0.116.1
+uvicorn==0.35.0
